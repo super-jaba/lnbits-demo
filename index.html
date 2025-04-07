@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LNbits Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        h1 {
+            color: #ff9900;
+            text-align: center;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 95%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #ff9900;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #e68a00;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            max-width: 100%;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>LNbits Client</h1>
+
+    <div class="container">
+        <h2>Base URL Configuration</h2>
+        <label for="url-base">LNbits URL Base:</label>
+        <input type="text" id="url-base" value="demo.lnbits.com" placeholder="e.g., demo.lnbits.com">
+    </div>
+
+    <div class="container">
+        <h2>Create Account</h2>
+        <label for="account-name">Account Name:</label>
+        <input type="text" id="account-name" placeholder="Enter account name">
+        <div class="actions">
+            <button id="create-account-btn">Create Account</button>
+        </div>
+        <div id="account-result" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Create Wallet</h2>
+        <label for="account-api-key">Account API Key:</label>
+        <input type="text" id="account-api-key" placeholder="Enter account API key">
+        <label for="wallet-name">Wallet Name:</label>
+        <input type="text" id="wallet-name" placeholder="Enter wallet name">
+        <div class="actions">
+            <button id="create-wallet-btn">Create Wallet</button>
+        </div>
+        <div id="wallet-result" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Get Wallet Info</h2>
+        <label for="wallet-key">Wallet Key (inkey or adminkey):</label>
+        <input type="text" id="wallet-key" placeholder="Enter wallet key">
+        <div class="actions">
+            <button id="get-wallet-btn">Get Wallet</button>
+        </div>
+        <div id="wallet-info-result" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Create Invoice</h2>
+        <label for="invoice-wallet-key">Wallet Key:</label>
+        <input type="text" id="invoice-wallet-key" placeholder="Enter wallet key">
+        <label for="amount-sats">Amount (sats):</label>
+        <input type="number" id="amount-sats" placeholder="Enter amount in satoshis">
+        <label for="memo">Memo:</label>
+        <input type="text" id="memo" placeholder="Enter memo (optional)">
+        <div class="actions">
+            <button id="create-invoice-btn">Create Invoice</button>
+        </div>
+        <div id="invoice-result" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Pay Invoice</h2>
+        <label for="paying-wallet-adminkey">Wallet Admin Key:</label>
+        <input type="text" id="paying-wallet-adminkey" placeholder="Enter wallet admin key">
+        <label for="invoice-to-pay">Invoice to Pay:</label>
+        <input type="text" id="invoice-to-pay" placeholder="Enter the invoice bolt11 string">
+        <div class="actions">
+            <button id="pay-invoice-btn">Pay Invoice</button>
+        </div>
+        <div id="payment-result" class="result"></div>
+    </div>
+
+    <script>
+        /**
+         * LNbits client class that provides methods to interact with the LNbits API
+         */
+        class LNbitsClient {
+            /**
+             * Creates an instance of the LNbits client
+             * @param {string} urlBase - The base URL of the LNbits API
+             */
+            constructor(urlBase) {
+                this._URL_BASE = urlBase;
+                this._API_V1_URL = `https://${this._URL_BASE}/api/v1`;
+                this._ACCOUNTS_RESOURCE = `${this._API_V1_URL}/account`;
+                this._WALLETS_RESOURCE = `${this._API_V1_URL}/wallet`;
+                this._PAYMENTS_RESOURCE = `${this._API_V1_URL}/payments`;
+            }
+
+            /**
+             * Creates an LNbits account
+             * @param {string} name - The name of the account to be created
+             * @returns {Promise<Object>} - A promise that resolves to the account object
+             */
+            createAccount(name) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', this._ACCOUNTS_RESOURCE, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+
+                    xhr.onload = function () {
+                        if (xhr.status === 200) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject({
+                                status: xhr.status,
+                                body: xhr.responseText
+                            });
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        reject({
+                            status: xhr.status,
+                            body: 'Request failed'
+                        });
+                    };
+
+                    xhr.send(JSON.stringify({
+                        name: name
+                    }));
+                });
+            }
+
+            /**
+             * Creates an LNbits wallet
+             * @param {string} accountApiKey - The API key of the account associated with the wallet
+             * @param {string} name - The name of the wallet to be created
+             * @returns {Promise<Object>} - A promise that resolves to the wallet object
+             */
+            createWallet(accountApiKey, name) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', this._WALLETS_RESOURCE, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.setRequestHeader('X-Api-Key', accountApiKey);
+
+                    xhr.onload = function () {
+                        if (xhr.status === 200) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject({
+                                status: xhr.status,
+                                body: xhr.responseText
+                            });
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        reject({
+                            status: xhr.status,
+                            body: 'Request failed'
+                        });
+                    };
+
+                    xhr.send(JSON.stringify({
+                        name: name
+                    }));
+                });
+            }
+
+            /**
+             * Fetches a wallet by its inkey or adminkey
+             * @param {string} walletKey - The wallet's inkey or adminkey
+             * @returns {Promise<Object|null>} - A promise that resolves to the wallet info object, or null if not found
+             */
+            getWallet(walletKey) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', this._WALLETS_RESOURCE, true);
+                    xhr.setRequestHeader('X-Api-Key', walletKey);
+
+                    xhr.onload = function () {
+                        if (xhr.status === 200) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else if (xhr.status === 404) {
+                            resolve(null);
+                        } else {
+                            reject({
+                                status: xhr.status,
+                                body: xhr.responseText
+                            });
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        reject({
+                            status: xhr.status,
+                            body: 'Request failed'
+                        });
+                    };
+
+                    xhr.send();
+                });
+            }
+
+            /**
+             * Creates an invoice to be paid by another wallet
+             * @param {string} walletKey - The wallet's inkey or adminkey
+             * @param {number} amountSats - The amount in sats to be paid
+             * @param {string} memo - An arbitrary string to distinguish the payment
+             * @returns {Promise<Object>} - A promise that resolves to the invoice object
+             */
+            createInvoice(walletKey, amountSats, memo = "") {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', this._PAYMENTS_RESOURCE, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.setRequestHeader('X-Api-Key', walletKey);
+
+                    xhr.onload = function () {
+                        if (xhr.status === 201) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject({
+                                status: xhr.status,
+                                body: xhr.responseText
+                            });
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        reject({
+                            status: xhr.status,
+                            body: 'Request failed'
+                        });
+                    };
+
+                    xhr.send(JSON.stringify({
+                        out: false,
+                        amount: parseInt(amountSats),
+                        memo: memo
+                    }));
+                });
+            }
+
+            /**
+             * Pays an invoice
+             * @param {string} walletAdminkey - The wallet's adminkey (inkey will NOT work)
+             * @param {string} invoice - The invoice to be paid
+             * @returns {Promise<Object>} - A promise that resolves to the payment object
+             */
+            payInvoice(walletAdminkey, invoice) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', this._PAYMENTS_RESOURCE, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.setRequestHeader('X-Api-Key', walletAdminkey);
+
+                    xhr.onload = function () {
+                        if (xhr.status === 200) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject({
+                                status: xhr.status,
+                                body: xhr.responseText
+                            });
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        reject({
+                            status: xhr.status,
+                            body: 'Request failed'
+                        });
+                    };
+
+                    xhr.send(JSON.stringify({
+                        out: true,
+                        bolt11: invoice
+                    }));
+                });
+            }
+        }
+
+        // Initialize event listeners when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            let client;
+
+            // Function to update client with current base URL
+            function updateClient() {
+                const urlBase = document.getElementById('url-base').value.trim();
+                client = new LNbitsClient(urlBase);
+            }
+
+            // Initialize client
+            updateClient();
+
+            // Update client when URL base changes
+            document.getElementById('url-base').addEventListener('change', updateClient);
+
+            // Create Account
+            document.getElementById('create-account-btn').addEventListener('click', function () {
+                const accountName = document.getElementById('account-name').value.trim();
+                const resultElement = document.getElementById('account-result');
+
+                if (!accountName) {
+                    resultElement.innerHTML = '<span class="error">Please enter an account name</span>';
+                    return;
+                }
+
+                resultElement.innerHTML = 'Creating account...';
+
+                client.createAccount(accountName)
+                    .then(account => {
+                        resultElement.innerHTML = '<span class="success">Account created successfully:</span>\n' +
+                            JSON.stringify(account, null, 2);
+                    })
+                    .catch(error => {
+                        resultElement.innerHTML = '<span class="error">Error creating account:</span>\n' +
+                            `Status: ${error.status}\n` +
+                            `Response: ${error.body}`;
+                    });
+            });
+
+            // Create Wallet
+            document.getElementById('create-wallet-btn').addEventListener('click', function () {
+                const accountApiKey = document.getElementById('account-api-key').value.trim();
+                const walletName = document.getElementById('wallet-name').value.trim();
+                const resultElement = document.getElementById('wallet-result');
+
+                if (!accountApiKey || !walletName) {
+                    resultElement.innerHTML = '<span class="error">Please enter both account API key and wallet name</span>';
+                    return;
+                }
+
+                resultElement.innerHTML = 'Creating wallet...';
+
+                client.createWallet(accountApiKey, walletName)
+                    .then(wallet => {
+                        resultElement.innerHTML = '<span class="success">Wallet created successfully:</span>\n' +
+                            JSON.stringify(wallet, null, 2);
+                    })
+                    .catch(error => {
+                        resultElement.innerHTML = '<span class="error">Error creating wallet:</span>\n' +
+                            `Status: ${error.status}\n` +
+                            `Response: ${error.body}`;
+                    });
+            });
+
+            // Get Wallet Info
+            document.getElementById('get-wallet-btn').addEventListener('click', function () {
+                const walletKey = document.getElementById('wallet-key').value.trim();
+                const resultElement = document.getElementById('wallet-info-result');
+
+                if (!walletKey) {
+                    resultElement.innerHTML = '<span class="error">Please enter a wallet key</span>';
+                    return;
+                }
+
+                resultElement.innerHTML = 'Fetching wallet info...';
+
+                client.getWallet(walletKey)
+                    .then(walletInfo => {
+                        if (walletInfo === null) {
+                            resultElement.innerHTML = '<span class="error">Wallet not found</span>';
+                        } else {
+                            resultElement.innerHTML = '<span class="success">Wallet info retrieved:</span>\n' +
+                                JSON.stringify(walletInfo, null, 2);
+                        }
+                    })
+                    .catch(error => {
+                        resultElement.innerHTML = '<span class="error">Error fetching wallet info:</span>\n' +
+                            `Status: ${error.status}\n` +
+                            `Response: ${error.body}`;
+                    });
+            });
+
+            // Create Invoice
+            document.getElementById('create-invoice-btn').addEventListener('click', function () {
+                const walletKey = document.getElementById('invoice-wallet-key').value.trim();
+                const amountSats = document.getElementById('amount-sats').value.trim();
+                const memo = document.getElementById('memo').value.trim();
+                const resultElement = document.getElementById('invoice-result');
+
+                if (!walletKey || !amountSats) {
+                    resultElement.innerHTML = '<span class="error">Please enter both wallet key and amount</span>';
+                    return;
+                }
+
+                resultElement.innerHTML = 'Creating invoice...';
+
+                client.createInvoice(walletKey, parseInt(amountSats), memo)
+                    .then(invoice => {
+                        resultElement.innerHTML = '<span class="success">Invoice created successfully:</span>\n' +
+                            JSON.stringify(invoice, null, 2);
+                    })
+                    .catch(error => {
+                        resultElement.innerHTML = '<span class="error">Error creating invoice:</span>\n' +
+                            `Status: ${error.status}\n` +
+                            `Response: ${error.body}`;
+                    });
+            });
+
+            // Pay Invoice
+            document.getElementById('pay-invoice-btn').addEventListener('click', function () {
+                const walletAdminkey = document.getElementById('paying-wallet-adminkey').value.trim();
+                const invoice = document.getElementById('invoice-to-pay').value.trim();
+                const resultElement = document.getElementById('payment-result');
+
+                if (!walletAdminkey || !invoice) {
+                    resultElement.innerHTML = '<span class="error">Please enter both wallet admin key and invoice</span>';
+                    return;
+                }
+
+                resultElement.innerHTML = 'Processing payment...';
+
+                client.payInvoice(walletAdminkey, invoice)
+                    .then(payment => {
+                        resultElement.innerHTML = '<span class="success">Payment successful:</span>\n' +
+                            JSON.stringify(payment, null, 2);
+                    })
+                    .catch(error => {
+                        resultElement.innerHTML = '<span class="error">Error processing payment:</span>\n' +
+                            `Status: ${error.status}\n` +
+                            `Response: ${error.body}`;
+                    });
+            });
+        });
+    </script>
+</body>
+
+</html>
